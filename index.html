@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="styles.css">
+	<script src="messages.json"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+	<title>Kentuckiana Sounds</title>
+</head>
+<body>
+	<div id="titlebar">
+		<img style="height:9vh;"src="http://www.kentuckianasounds.org/uploads/1/1/1/1/111173129/kentuckiana-sounds-logo-wide_3_orig.png">
+		<button id="submitbutton" onclick="showhideform()">Submit audio to us!</button>
+	</div>
+	<div id="main-map" style="width:95vw;height:88vh;margin-left:2.5vw;"></div>
+	
+	<!-- Let's begin with our form element -->
+	<form id="submitform" action="script.php" method="post" enctype="multipart/form-data" style="display:none">
+		<a id="x" onclick="showhideform()">&#9932;</a>
+		<h3>Share your audio with us.</h3>
+
+		<label>First name</label>
+		<input type="text" name="firstname" value="">
+
+		<label>Last name</label>
+		<input type="text" name="lastname" value="">
+
+		<label>Enter your email</label>
+		<input type="email" name="email" value="">
+
+		<label>Sourcing</label>
+		<table>
+			<tr>
+				<td><input type='radio' name="sourcing" value="yes"></td>
+				<td><p>You CAN use my name</p></td>
+			</tr>
+			<tr>
+				<td><input type='radio' name="sourcing" value="no"></td>
+				<td><p>Do NOT use my name</p></td>
+			</tr>
+		</table>
+
+		<label>Where was this audio collected? (Be as specific as possible.)</label>
+		<div id="location-picker-map" style="width:95%; height: 400px;"></div>
+		<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB-oGGe0e6OoHbsRhQ5CnTcDQSLJIYXGRw&callback=initMap&v=weekly" defer></script>
+		<input type="hidden" name="audio-latitude" id="audio-latitude">
+		<input type="hidden" name="audio-longitude" id="audio-longitude">
+
+
+		<label>When was this audio collected?</label>
+		<input type="date" id="recordingdate" name="recordingdate">
+
+		<label>Describe the audio file in a few sentences</label>
+		<textarea name="message"></textarea>
+
+		<input type="file" name="fileToUpload" id="fileToUpload">
+
+		<input type="submit" name="submit" value="Submit">
+
+		<p class="error"><?php echo @$error; ?></p>
+		<p class="success"><?php echo @$success; ?></p>
+	</form>
+	<script>
+
+function showhideform() {
+  var form = document.getElementById("submitform");
+  if (form.style.display === "none") {
+    form.style.display = "inline-grid";
+  } else {
+    form.style.display = "none";
+  }
+};
+
+function initMap() {
+
+  const myLatlng = { lat:38.23379, lng:-85.75476 };
+
+  const mainmap = new google.maps.Map(document.getElementById("main-map"), {
+	zoom: 8,
+	center:myLatlng,
+	disableDefaultUI:true,
+});
+
+  fetch('./messages.json')
+  .then(function(response) {
+    return response.json();
+  })
+  .then(function(jsonResponse) {
+  	console.log(jsonResponse);
+    for (let i = 0; i < jsonResponse.length; i++) {
+
+    const latLng = new google.maps.LatLng(jsonResponse[i]["audio-latitude"], jsonResponse[i]["audio-longitude"]);
+
+    const marker = new google.maps.Marker({
+      position: latLng,
+      map: mainmap,
+    });
+
+//Here we have to differentiate between the people who wished to be named and those who didn't. audio_info is treated differently depending on that choice.
+
+    let audio_info;
+
+    if(jsonResponse[i]["sourcing"]==="yes"){
+      audio_info = new google.maps.InfoWindow({
+    content: jsonResponse[i]["firstname"] +" " +jsonResponse[i]["lastname"] + " recorded this audio on " + jsonResponse[i]["recordingdate"]+"<br><hr> <strong>Description: </strong>"+ jsonResponse[i]["message"] + "<br><br><audio controls><source src='uploads/" + jsonResponse[i]['file_name'] + "'></audio>",
+  })}
+    else{ audio_info =  new google.maps.InfoWindow({
+    content: "Anonymous recorded this audio on " + jsonResponse[i]["recordingdate"]+"<br><hr> <strong>Description: </strong>"+ jsonResponse[i]["message"] + "<br><br><audio controls><source src='uploads/" + jsonResponse[i]['file_name'] + "'></audio>",
+  })}
+
+ //   const audio_info = new google.maps.InfoWindow({
+ //   content: jsonResponse[i]["firstname"] +" " +jsonResponse[i]["lastname"] + " recorded this audio on " + jsonResponse[i]["recordingdate"]+"<br> <strong>Description: </strong>"+ jsonResponse[i]["message"] + "<br><br><audio controls><source src='uploads/" + jsonResponse[i]['file_name'] + "'></audio>",
+ // });
+
+
+  marker.addListener("click", () => {
+    audio_info.open({
+      anchor: marker,
+      mainmap,
+    });
+  });
+
+};
+
+
+    
+
+
+  });
+
+
+
+  const locationmap = new google.maps.Map(document.getElementById("location-picker-map"), {
+    zoom: 12,
+    center: myLatlng,
+    disableDefaultUI: true,
+    zoomControl:true,
+  });
+  // Create the initial InfoWindow.
+  let infoWindow = new google.maps.InfoWindow({
+    content: "<strong>Click the map.</strong>",
+    position: myLatlng,
+  });
+
+  infoWindow.open(locationmap);
+  // Configure the click listener.
+  locationmap.addListener("click", (mapsMouseEvent) => {
+    // Close the current InfoWindow.
+    infoWindow.close();
+    // Create a new InfoWindow.
+    infoWindow = new google.maps.InfoWindow({
+      position: mapsMouseEvent.latLng,
+    });
+    infoWindow.setContent(
+      "I got the audio here!"
+    );
+    document.getElementById("audio-latitude").value = mapsMouseEvent.latLng.lat();
+    document.getElementById("audio-longitude").value = mapsMouseEvent.latLng.lng();
+    infoWindow.open(locationmap);
+  });
+};
+
+window.initMap = initMap;
+</script>
+	
+</body>
+</html>
